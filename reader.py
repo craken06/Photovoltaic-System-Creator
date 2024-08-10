@@ -1,140 +1,169 @@
 import json
 import os
-
-#Globales
-ruta_json = "db/db.json" # Ruta del json
-Panel_db = ""
-Resultados = []
-panel_name = ""
-panel_elegido_ = 0
-
-#Datos para calculo de paneles
-
-Consumo = 300 #En kWh
-autonomia = 1 #En dias
-hsp = 3.69 #En hora solar pico
-Vtrabajo = 48
-DoD = 0.9
+import math
+from db_create import db_create
 
 
-
-def dict_create(ruta_json):
+def obtener_datos_iniciales():
+    global CONSUMO, AUTONOMIA, HSP, V_TRABAJO
     os.system("cls")
-    with open(ruta_json) as p_db:
-            Panel_db =  json.load(p_db)
-    return Panel_db
-
-def do_with_panel():
-    print(f"Tu instalacion con el panel {panel_name}:")
-    print("")
-    print("Menú:")
-    print("")
-    print("1.Energia de autonomia")
-    print("2.Energia del panel")
-    print("3.Capacidad del banco de baterias")
-    print("4.Energia del banco de baterias")
-    print("5.Energia del banco de baterias descargado")
-    print("6.Energia a cargar a las baterias")
-    print("7.Energia total a suministrar por los paneles")
-    print("8.Cantidad de paneles")
-    print("9.Salir")
-    print("")
-    choice = int(input("¿Que te gustaria ver de la instalacion? (1 - 9): "))
+    print("Configuración inicial de la instalación:")
     
-    if choice == 1:
-        os.system("cls")
-        print(f"La energia de autonomia es de: {Resultados[choice-1]}Wh")
-        print("")
-        do_with_panel()
-    if choice == 2:
-        os.system("cls")
-        print(f"La energia de un panel es de: {Resultados[choice-1]}Wh")
-        print("")
-        do_with_panel()
-    if choice == 3:
-        os.system("cls")
-        print(f"La capacidad del banco de baterias es de: {Resultados[choice-1]}Ah")
-        print("")
-        do_with_panel()
-    if choice == 4:
-        os.system("cls")
-        print(f"La energia del banco de baterias es de: {Resultados[choice-1]}Ah")
-        print("")
-        do_with_panel()
-    if choice == 5:
-        os.system("cls")
-        print(f"La energia del banco de baterias descargado es de: {Resultados[choice-1]}Ah")
-        print("")
-        do_with_panel()
-    if choice == 6:
-        os.system("cls")
-        print(f"La energia a cargar de las baterias es de: {Resultados[choice-1]}Ah")
-        print("")
-        do_with_panel()
-    if choice == 7:
-        os.system("cls")
-        print(f"La energia total que debe suministrar los paneles es de: {Resultados[choice-1]}Wh")
-        print("")
-        do_with_panel()
-    if choice == 8:
-        os.system("cls")
-        print(f"La cantidad total de paneles es de: {Resultados[choice-1]}")
-        print("")
-        do_with_panel()
-    if choice == 9:
-        os.system("cls")
-        return None
+    try:
+        CONSUMO = float(input("Introduce el consumo mensual de la instalación (kWh): "))
+        AUTONOMIA = float(input("Introduce los días de autonomía: "))
+        HSP = float(input("Introduce la hora solar pico: "))
+        V_TRABAJO = float(input("Introduce la tensión de trabajo (V): "))
+    except ValueError:
+        print("Error: Por favor, ingresa valores numéricos válidos!")
+        obtener_datos_iniciales()
 
-def calc_panel(consumo,autonomia,hsp,DoD,Vtrabajo):
-    #Sanitizar entrada (Pasar todo a float)
-    Vtrabajo = float(Vtrabajo)
-    DoD = float(DoD)
-    consumo = float(consumo)
-    autonomia = float(autonomia)
-    hsp = float(hsp)
-    Pm = Panel_db["Paneles"][panel_elegido_-1]["Potencia maxima"].strip("W")
-    Pm = float(Pm)
+def seleccionar_panel(paneles_db):
+    opciones_posibles = list(range(1, len(paneles_db["Paneles"]) + 1))
+    for i, panel in enumerate(paneles_db["Paneles"]):
+        nombre = panel["Nombre"]
+        modelo = panel["Modelo"]
+        print(f"{i+1}. {nombre} {modelo}")
+    
+    print(f"{len(opciones_posibles) + 1}. Salir")
 
-    Eautonomia = autonomia * consumo * 1000/30
-    Epanel = hsp * Pm
-    Cbb = Eautonomia*DoD/(Vtrabajo*0.95*DoD)
-    Ebb = Cbb * Vtrabajo
-    Eb_desc = Ebb - Eautonomia
-    Ec = (Ebb * DoD)-Eb_desc
-    Eps =  Eautonomia + Ec
-    C_Paneles = Eps/(Epanel*autonomia*0.9)
-    Resultados = [Eautonomia,Epanel,Cbb,Ebb,Eb_desc,Ec,Eps,C_Paneles]
-    return Resultados
+    try:
+        panel_elegido = int(input(f"\nElige un panel para usar ({opciones_posibles[0]} - {opciones_posibles[-1]}): "))
+    except ValueError:
+        os.system("cls")
+        print(f"\nError: Por favor, ingresa un número válido!")
+        return seleccionar_panel(paneles_db)
 
-def menu_paneles_creator(ruta_json,Panel_db):
-    global panel_elegido_
-    global panel_name
-    opciones_posibles = [] #Creo una lista para el menu, la lista se crea teniendo en cuenta la cantidad de paneles
-    print("\n")
-    for i in range(len(Panel_db["Paneles"])): #El for se repite la cantidad de paneles que tengamos
-        nombre = Panel_db["Paneles"][i]["Nombre"] #nombre sera el nombre del panel, que se encuentra en el json
-        opciones_posibles.append(i+1) #Agrega (del 1 hasta la cantidad de paneles que hayan) para la cantidad de opciones
-        print(f"{i+1}. {nombre}") #Imprime el nombre del panel en pantalla
+    if panel_elegido == len(opciones_posibles) + 1:
+        os.system("cls")
+        quit()
 
-    panel_elegido = int(input(f"\nElige un panel para usar ({opciones_posibles[0]} - {opciones_posibles[-1]}): "))
+    if panel_elegido not in opciones_posibles:
+        os.system("cls")
+        print(f"\nError: Por favor, elige una opción válida! ({opciones_posibles[0]} - {opciones_posibles[-1]})")
+        return seleccionar_panel(paneles_db)
+
     os.system("cls")
-    panel_name = Panel_db["Paneles"][int(panel_elegido)-1]["Nombre"]
-    panel_elegido_ = panel_elegido
-    if int(panel_elegido) not in opciones_posibles:
+    panel_name = paneles_db["Paneles"][panel_elegido - 1]["Nombre"]
+    return panel_elegido, panel_name
+
+def seleccionar_bateria(baterias_db):
+    opciones_posibles = list(range(1, len(baterias_db["Baterias"]) + 1))
+    for i, bateria in enumerate(baterias_db["Baterias"]):
+        nombre = bateria["Nombre"]
+        modelo = bateria["Modelo"]
+        print(f"{i+1}. {nombre} {modelo}")
+    
+    print(f"{len(opciones_posibles) + 1}. Salir")
+
+    try:
+        bateria_elegida = int(input(f"\nElige una batería para usar ({opciones_posibles[0]} - {opciones_posibles[-1]}): "))
+    except ValueError:
         os.system("cls")
-        print(f"\nError: Por favor, elige una opcion posible! ({opciones_posibles[0]} - {opciones_posibles[-1]})")
-        menu_paneles_creator(ruta_json)
+        print(f"\nError: Por favor, ingresa un número válido!")
+        return seleccionar_bateria(baterias_db)
+
+    if bateria_elegida == len(opciones_posibles) + 1:
+        os.system("cls")
+        quit()
+
+    if bateria_elegida not in opciones_posibles:
+        os.system("cls")
+        print(f"\nError: Por favor, elige una opción válida! ({opciones_posibles[0]} - {opciones_posibles[-1]})")
+        return seleccionar_bateria(baterias_db)
+
+    os.system("cls")
+    bateria_name = baterias_db["Baterias"][bateria_elegida - 1]["Nombre"]
+    DOD = float(baterias_db["Baterias"][bateria_elegida - 1]["DOD"])
+    return bateria_elegida, bateria_name, DOD
+
+def calcular_panel(panel_elegido, paneles_db, consumo, autonomia, hsp, dod, v_trabajo):
+    pm = float(paneles_db["Paneles"][panel_elegido - 1]["Potencia maxima"].strip("W"))
+
+    e_autonomia = autonomia * consumo * 1000 / 30
+    e_panel = hsp * pm
+    c_bb = e_autonomia * autonomia / (v_trabajo * 0.95 * dod)
+    e_bb = c_bb * v_trabajo
+    eb_desc = e_bb - e_autonomia
+    ec = (e_bb * dod) - eb_desc
+    eps = e_autonomia + ec
+    c_paneles = eps/(e_panel*1*dod)
+    return [round(x, 2) for x in [e_autonomia, e_panel, c_bb, e_bb, eb_desc, ec, eps, c_paneles]]
+
+def calcular_bateria(bateria_elegida, baterias_db, capacidad_total):
+    capacidad = float(baterias_db["Baterias"][bateria_elegida - 1]["Capacidad nominal"].strip("Ah"))
+    num_baterias = math.ceil(capacidad_total / capacidad)
+    return num_baterias
+
+def mostrar_menu_instalacion(panel_name, bateria_name, resultados, num_baterias, consumo, autonomia, hsp, v_trabajo):
+    acciones = [
+        "Cambiar consumo y parámetros",
+        "Elegir otro panel",
+        "Elegir otra batería",
+        "Salir"
+    ]
+    unidades = [
+        "paneles",
+        "baterías"
+    ]
+    
+    while True:
+        os.system("cls")
+        print(f"Tu instalación con el panel {panel_name} y la batería {bateria_name}:\n")
+        print("Menú:\n")
+        
+        print(f"Número de paneles: {resultados[7]} paneles")
+        print(f"Número de baterías: {num_baterias} baterías")
+        print(f"Consumo mensual: {consumo} kWh")
+        print(f"Consumo diario: {consumo / (autonomia * 30):.2f} kWh")
+        
+        for i, accion in enumerate(acciones, 1):
+            print(f"{i}. {accion}")
+
+        try:
+            choice = int(input("¿Qué te gustaría hacer? (1 - 6): "))
+        except ValueError:
+            os.system("cls")
+            print("\nError: Por favor, ingresa un número válido!")
+            continue
+
+        if choice == 4:
+            os.system("cls")
+            quit()
+        elif choice == 1:
+            return 'cambiar_parametros'
+        elif choice == 2:
+            return 'cambiar_panel'
+        elif choice == 3:
+            return 'cambiar_bateria'
 
 def main():
-    global Panel_db
-    global Resultados
-    Panel_db = dict_create(ruta_json)
-    os.system("cls") #Borro toda la consola
-    os.chdir("C:/Users/LUCAS/Desktop/Polaris Solution/db_reader") #Selecciono la ruta de trabajo
-    print("\nMenú:")
-    menu_paneles_creator(ruta_json,Panel_db)
-    Resultados = calc_panel(Consumo,autonomia,hsp,DoD,Vtrabajo)
-    do_with_panel()
-if __name__ == "__main__": #Flujo del programa
+    obtener_datos_iniciales()
+    database = db_create()
+    paneles_db = database[0]
+    baterias_db = database[1]
+
+    while True:
+        os.system("cls")
+        print("\nMenú:")
+        panel_elegido, panel_name = seleccionar_panel(paneles_db)
+        bateria_elegida, bateria_name, DOD = seleccionar_bateria(baterias_db)
+        resultados = calcular_panel(panel_elegido, paneles_db, CONSUMO, AUTONOMIA, HSP, DOD, V_TRABAJO)
+        num_baterias = calcular_bateria(bateria_elegida, baterias_db, resultados[2])
+        
+        while True:
+            accion = mostrar_menu_instalacion(panel_name, bateria_name, resultados, num_baterias, CONSUMO, AUTONOMIA, HSP, V_TRABAJO)
+            if accion == 'cambiar_parametros':
+                obtener_datos_iniciales()
+                resultados = calcular_panel(panel_elegido, paneles_db, CONSUMO, AUTONOMIA, HSP, DOD, V_TRABAJO)
+                num_baterias = calcular_bateria(bateria_elegida, baterias_db, resultados[2])
+            elif accion == 'cambiar_panel':
+                panel_elegido, panel_name = seleccionar_panel(paneles_db)
+                resultados = calcular_panel(panel_elegido, paneles_db, CONSUMO, AUTONOMIA, HSP, DOD, V_TRABAJO)
+                num_baterias = calcular_bateria(bateria_elegida, baterias_db, resultados[2])
+            elif accion == 'cambiar_bateria':
+                bateria_elegida, bateria_name, DOD = seleccionar_bateria(baterias_db)
+                num_baterias = calcular_bateria(bateria_elegida, baterias_db, resultados[2])
+
+if __name__ == "__main__": 
     main()
-    
