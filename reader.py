@@ -1,4 +1,3 @@
-import json
 import os
 import math
 from db_create import db_create
