@@ -1,6 +1,6 @@
 import os
 import math
-from db_create import db_create
+from pscapp.db_create import db_create
 
 
 def obtener_datos_iniciales():
